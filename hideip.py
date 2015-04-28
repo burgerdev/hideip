@@ -10,7 +10,7 @@ _mod_desc = """
 This module can be used to obfuscate or simply hide ip addresses, e.g.
 in server access log files. With a regularly rotated secret, the IPs
 remain readable, you can monitor and backtrace the requests of a single
-IP (for security aduiting, ...) but the actual user IP remains hidden.
+IP (for security auditing, ...) but the actual user IP remains hidden.
 """ 
 
 ip_re = re.compile(r"[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}")
@@ -128,7 +128,7 @@ if __name__ == "__main__":
                         help="output, appended to, default: stdout")
     parser.add_argument('-w', '--words', action="store_true",
                         default=False,
-                        help="replace bytes by words (default: False)")
+                        help="replace bytes by words, default: False")
     args = parser.parse_args()
 
     if args.secret is not None:
