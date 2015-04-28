@@ -3,6 +3,7 @@
 # author: Markus Döring
 # license: GPLv3
 
+import os
 import hashlib
 import re
 
@@ -115,6 +116,34 @@ def replaceip(line, secret=None, words=True):
     out = "".join(interleave(tokens, ips))
     return out
 
+
+def updateSecret(filename, lastaccess=None, secret=None):
+    if filename is None:
+        return None, None
+
+    newaccess = os.path.getmtime(filename)
+    if lastaccess is None or newaccess > lastaccess:
+        # never read before
+        lastaccess = newaccess
+        with open(filename, 'rb') as f:
+            secret = f.read()
+
+    return lastaccess, secret
+
+
+def mainloop(args):
+    lastaccess, secret = updateSecret(args.secret)
+
+    for line in args.infile:
+        if args.keep_reading:
+            lastaccess, secret = updateSecret(args.secret,
+                                              lastaccess=lastaccess,
+                                              secret=secret)
+        mod = replaceip(line, secret=secret, words=args.words)
+        args.outfile.write(mod)
+        args.outfile.flush()
+
+
 if __name__ == "__main__":
     import argparse
     import sys
@@ -124,8 +153,7 @@ if __name__ == "__main__":
                         default=sys.stdin,
                         help="input, read line by line, default: stdin")
     parser.add_argument('-s', '--secret',
-                        type=argparse.FileType('rb'),
-                        default=None,
+                        action="store", default=None,
                         help="secret file for rotating IPs"
                              " (should contain more than 64 byte)")
     parser.add_argument('-o', '--outfile',
@@ -135,17 +163,14 @@ if __name__ == "__main__":
     parser.add_argument('-w', '--words', action="store_true",
                         default=False,
                         help="replace bytes by words, default: False")
+    parser.add_argument('-k', '--keep-reading', action="store_true",
+                        default=False,
+                        help="keep reading the secret file, "
+                             "default: False")
     args = parser.parse_args()
 
-    if args.secret is not None:
-        secret = args.secret.read()
-    else:
-        secret = None
-
-    for line in args.infile:
-        mod = replaceip(line, secret=secret, words=args.words)
-        args.outfile.write(mod)
-        args.outfile.flush()
-
-    args.infile.close()
-    args.outfile.close()
+    try:
+        mainloop(args)
+    finally:
+        args.infile.close()
+        args.outfile.close()
