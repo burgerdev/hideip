@@ -7,6 +7,8 @@ import os
 import hashlib
 import re
 
+from itertools import imap, izip, count
+
 from wordlist import wordlist
 
 _mod_desc = """
@@ -39,6 +41,7 @@ def interleave(*args):
         yield current_iterator.next()
         counter += 1
 
+
 def ip2words(ip):
     """
     transforms an IP to a list of 4 PGP words
@@ -49,8 +52,8 @@ def ip2words(ip):
     u'Zulu.yesteryear.Zulu.yesteryear'
     """
     foo = lambda (i, n): wordlist[n][i%2]
-    ips = map(int, ip.split("."))
-    words = map(foo, enumerate(ips))
+    ips = imap(int, ip.split("."))
+    words = imap(foo, izip(count(), ips))
     return ".".join(words)
 
 
@@ -75,7 +78,7 @@ def rotateip(ip, secret=None):
     """
 
     def tokenize(a, n):
-        return map(lambda i: a[i:i+n], range(0, len(a), n))
+        return imap(lambda i: a[i:i+n], xrange(0, len(a), n))
 
     if secret is None:
         return "0.0.0.0"
@@ -85,11 +88,19 @@ def rotateip(ip, secret=None):
     h.update(secret)
     x = h.hexdigest()
     assert len(x) == 64
-    t = tokenize(x, 16)
-    tt = map(lambda y: tokenize(y, 2), t)
-    tti = map(lambda subtt: map(lambda s: int(s, base=16), subtt), tt)
-    ttr = map(lambda subtt: str(sum(subtt) % 256), tti)
-    return ".".join(ttr)
+
+    # list of 4 substrings of hex
+    tokens = tokenize(x, 16)
+
+    def handle_part(p):
+        split = tokenize(p, 2)
+        as_int = imap(lambda s: int(s, base=16), split)
+        reduced = sum(as_int) % 256
+        return reduced
+
+    as_ip_tuple = imap(handle_part, tokens)
+    as_str_ip_tuple = imap(str, as_ip_tuple)
+    return ".".join(as_str_ip_tuple)
 
 
 def replaceip(line, secret=None, words=True):
@@ -109,15 +120,18 @@ def replaceip(line, secret=None, words=True):
     0.0.0.0 καὶ 0.0.0.0 δὲν θὰ βρῶ πιὰ στὸ χρυσαφὶ ξέφωτο
     """
     tokens = ip_re.split(line)
-    ips = ip_re.findall(line)
-    ips = map(lambda ip: rotateip(ip, secret=secret), ips)
+    ips = imap(lambda m: m.group(0), ip_re.finditer(line))
+    ips = imap(lambda ip: rotateip(ip, secret=secret), ips)
     if words:
-        ips = map(ip2words, ips)
+        ips = imap(ip2words, ips)
     out = "".join(interleave(tokens, ips))
     return out
 
 
 def updateSecret(filename, lastaccess=None, secret=None):
+    """
+    reload the secret file if it was modified
+    """
     if filename is None:
         return None, None
 
