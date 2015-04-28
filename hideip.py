@@ -144,6 +144,7 @@ if __name__ == "__main__":
     for line in args.infile:
         mod = replaceip(line, secret=secret, words=args.words)
         args.outfile.write(mod)
+        args.outfile.flush()
 
     args.infile.close()
     args.outfile.close()
