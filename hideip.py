@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-# Author: Markus Doering
+# coding: UTF-8
+# author: Markus Döring
+# license: GPLv3
 
 import hashlib
 import re
@@ -101,6 +103,9 @@ def replaceip(line, secret=None, words=True):
     'bla 112.64.123.134 blub '
     >>> replaceip(test, secret="secret")
     u'bla guidance.Dakota.kickoff.letterhead blub '
+    >>> s = replaceip("192.168.0.1 καὶ 10.10.10.10 δὲν θὰ βρῶ πιὰ στὸ χρυσαφὶ ξέφωτο", words=False)
+    >>> print(s)
+    0.0.0.0 καὶ 0.0.0.0 δὲν θὰ βρῶ πιὰ στὸ χρυσαφὶ ξέφωτο
     """
     tokens = ip_re.split(line)
     ips = ip_re.findall(line)

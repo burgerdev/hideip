@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-# Author: Markus Doering
+# coding: UTF-8
+# author: Markus Döring
+# license: GPLv3
 
 import json
 
