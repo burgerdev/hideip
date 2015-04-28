@@ -124,9 +124,10 @@ if __name__ == "__main__":
                         default=sys.stdin,
                         help="input, read line by line, default: stdin")
     parser.add_argument('-s', '--secret',
-                        type=argparse.FileType('r'),
+                        type=argparse.FileType('rb'),
                         default=None,
-                        help="secret file for rotating IPs")
+                        help="secret file for rotating IPs"
+                             " (should contain more than 64 byte)")
     parser.add_argument('-o', '--outfile',
                         type=argparse.FileType('a'),
                         default=sys.stdout,
