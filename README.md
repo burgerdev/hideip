@@ -20,7 +20,7 @@ Features:
 Usage
 =====
 
-```bash
+```console
 $ python hideip.py -h
 usage: hideip.py [-h] [-i INFILE] [-s SECRET] [-o OUTFILE] [-w] [-k]
 
@@ -45,7 +45,7 @@ optional arguments:
 Test
 ====
 
-```bash
+```console
 $ python -m doctest hideip.py
 ```
 
