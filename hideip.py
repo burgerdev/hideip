@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # coding: UTF-8
 # author: Markus Döring
 # license: GPLv3
@@ -6,8 +6,8 @@
 import os
 import hashlib
 import re
-
-from itertools import imap, izip, count
+import logging
+import itertools
 
 from wordlist import wordlist
 
@@ -34,11 +34,11 @@ def interleave(*args):
     """
     n = len(args)
     assert n > 0
-    iterators = map(iter, args)
+    iterators = [iter(arg) for arg in args]
     counter = 0
     while True:
         current_iterator = iterators[counter % n]
-        yield current_iterator.next()
+        yield next(current_iterator)
         counter += 1
 
 
@@ -47,17 +47,19 @@ def ip2words(ip):
     transforms an IP to a list of 4 PGP words
 
     >>> ip2words("1.2.3.4")
-    u'absurd.aftermath.acme.alkali'
+    'absurd.aftermath.acme.alkali'
     >>> ip2words("255.254.255.254")
-    u'Zulu.yesteryear.Zulu.yesteryear'
+    'Zulu.yesteryear.Zulu.yesteryear'
     """
-    foo = lambda (i, n): wordlist[n][i%2]
-    ips = imap(int, ip.split("."))
-    words = imap(foo, izip(count(), ips))
+    def get_pgp_word_alternating_case(count_and_index):
+        count, index = count_and_index
+        return wordlist[index][count%2]
+    ips = map(int, ip.split("."))
+    words = map(get_pgp_word_alternating_case, zip(itertools.count(), ips))
     return ".".join(words)
 
 
-def rotateip(ip, secret=None):
+def rotateip(ip, secret=None, string_fmt="utf-8"):
     """
     rotate ip to another address
 
@@ -78,14 +80,14 @@ def rotateip(ip, secret=None):
     """
 
     def tokenize(a, n):
-        return imap(lambda i: a[i:i+n], xrange(0, len(a), n))
+        return map(lambda i: a[i:i+n], range(0, len(a), n))
 
     if secret is None:
         return "0.0.0.0"
     h = hashlib.new("sha256")
     assert h.digest_size == 32
-    h.update(ip)
-    h.update(secret)
+    h.update(ip.encode(string_fmt))
+    h.update(secret.encode(string_fmt))
     x = h.hexdigest()
     assert len(x) == 64
 
@@ -94,12 +96,12 @@ def rotateip(ip, secret=None):
 
     def handle_part(p):
         split = tokenize(p, 2)
-        as_int = imap(lambda s: int(s, base=16), split)
+        as_int = map(lambda s: int(s, base=16), split)
         reduced = sum(as_int) % 256
         return reduced
 
-    as_ip_tuple = imap(handle_part, tokens)
-    as_str_ip_tuple = imap(str, as_ip_tuple)
+    as_ip_tuple = map(handle_part, tokens)
+    as_str_ip_tuple = map(str, as_ip_tuple)
     return ".".join(as_str_ip_tuple)
 
 
@@ -114,16 +116,16 @@ def replaceip(line, secret=None, words=True):
     >>> replaceip(test, secret="secret", words=False)
     'bla 112.64.123.134 blub '
     >>> replaceip(test, secret="secret")
-    u'bla guidance.Dakota.kickoff.letterhead blub '
+    'bla guidance.Dakota.kickoff.letterhead blub '
     >>> s = replaceip("192.168.0.1 καὶ 10.10.10.10 δὲν θὰ βρῶ πιὰ στὸ χρυσαφὶ ξέφωτο", words=False)
     >>> print(s)
     0.0.0.0 καὶ 0.0.0.0 δὲν θὰ βρῶ πιὰ στὸ χρυσαφὶ ξέφωτο
     """
     tokens = ip_re.split(line)
-    ips = imap(lambda m: m.group(0), ip_re.finditer(line))
-    ips = imap(lambda ip: rotateip(ip, secret=secret), ips)
+    ips = map(lambda m: m.group(0), ip_re.finditer(line))
+    ips = map(lambda ip: rotateip(ip, secret=secret), ips)
     if words:
-        ips = imap(ip2words, ips)
+        ips = map(ip2words, ips)
     out = "".join(interleave(tokens, ips))
     return out
 
@@ -153,9 +155,12 @@ def mainloop(args):
             lastaccess, secret = updateSecret(args.secret,
                                               lastaccess=lastaccess,
                                               secret=secret)
-        mod = replaceip(line, secret=secret, words=args.words)
-        args.outfile.write(mod)
-        args.outfile.flush()
+        try:
+            mod = replaceip(line, secret=secret, words=args.words)
+            args.outfile.write(mod)
+            args.outfile.flush()
+        except Exception as e:
+            logging.error("an error occurred: {}", str(e))
 
 
 if __name__ == "__main__":
