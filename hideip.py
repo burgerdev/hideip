@@ -3,22 +3,20 @@
 # author: Markus Döring
 # license: GPLv3
 
-import os
-import hashlib
 import re
 import logging
 import itertools
 
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.backends import default_backend
+
 from wordlist import wordlist
 
-_mod_desc = """
-This module can be used to obfuscate or simply hide ip addresses, e.g.
-in server access log files. With a regularly rotated secret, the IPs
-remain readable, you can monitor and backtrace the requests of a single
-IP (for security auditing, ...) but the actual user IP remains hidden.
-""" 
 
-ip_re = re.compile(r"[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}")
+_IP_RE = re.compile(r"[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}")
+_TIME_RE = re.compile(r"([0-9]+)([smhd])")
+_TIME_UNITS = {'s': 1, 'm': 60, 'h': 60*60, 'd': 24*60*60}
 
 
 def interleave(*args):
@@ -59,7 +57,7 @@ def ip2words(ip):
     return ".".join(words)
 
 
-def rotateip(ip, secret=None, string_fmt="utf-8"):
+def rotateip(ip, salt=None):
     """
     rotate ip to another address
 
@@ -82,30 +80,26 @@ def rotateip(ip, secret=None, string_fmt="utf-8"):
     def tokenize(a, n):
         return map(lambda i: a[i:i+n], range(0, len(a), n))
 
-    if secret is None:
+    def xor(t):
+        x, y = t
+        return x ^ y
+
+    if salt is None:
         return "0.0.0.0"
-    h = hashlib.new("sha256")
-    assert h.digest_size == 32
-    h.update(ip.encode(string_fmt))
-    h.update(secret.encode(string_fmt))
-    x = h.hexdigest()
-    assert len(x) == 64
 
-    # list of 4 substrings of hex
-    tokens = tokenize(x, 16)
+    hkdf = HKDF(algorithm=hashes.SHA256(), length=8, salt=salt,
+                info=b"ip-hashing", backend=default_backend())
 
-    def handle_part(p):
-        split = tokenize(p, 2)
-        as_int = map(lambda s: int(s, base=16), split)
-        reduced = sum(as_int) % 256
-        return reduced
+    hashed = hkdf.derive(ip.encode())
 
-    as_ip_tuple = map(handle_part, tokens)
-    as_str_ip_tuple = map(str, as_ip_tuple)
-    return ".".join(as_str_ip_tuple)
+    # for some reason, minimum derived key size is 8, so we need to further
+    # reduce the key
+    hashed = map(xor, zip(*tokenize(hashed, 4)))
+
+    return ".".join(map(str, hashed))
 
 
-def replaceip(line, secret=None, words=True):
+def replaceip(line, salt=None, words=True):
     """
     replace all IPs in line using the module functions
 
@@ -121,75 +115,16 @@ def replaceip(line, secret=None, words=True):
     >>> print(s)
     0.0.0.0 καὶ 0.0.0.0 δὲν θὰ βρῶ πιὰ στὸ χρυσαφὶ ξέφωτο
     """
-    tokens = ip_re.split(line)
-    ips = map(lambda m: m.group(0), ip_re.finditer(line))
-    ips = map(lambda ip: rotateip(ip, secret=secret), ips)
+    tokens = _IP_RE.split(line)
+    ips = map(lambda m: m.group(0), _IP_RE.finditer(line))
+    ips = map(lambda ip: rotateip(ip, salt=salt), ips)
     if words:
         ips = map(ip2words, ips)
     out = "".join(interleave(tokens, ips))
     return out
 
 
-def updateSecret(filename, lastaccess=None, secret=None):
-    """
-    reload the secret file if it was modified
-    """
-    if filename is None:
-        return None, None
+def parse_time(s):
+    t, u = _TIME_RE.match(s).groups()
 
-    newaccess = os.path.getmtime(filename)
-    if lastaccess is None or newaccess > lastaccess:
-        # never read before
-        lastaccess = newaccess
-        with open(filename, 'rb') as f:
-            secret = f.read()
-
-    return lastaccess, secret
-
-
-def mainloop(args):
-    lastaccess, secret = updateSecret(args.secret)
-
-    for line in args.infile:
-        if args.keep_reading:
-            lastaccess, secret = updateSecret(args.secret,
-                                              lastaccess=lastaccess,
-                                              secret=secret)
-        try:
-            mod = replaceip(line, secret=secret, words=args.words)
-            args.outfile.write(mod)
-            args.outfile.flush()
-        except Exception as e:
-            logging.error("an error occurred: {}", str(e))
-
-
-if __name__ == "__main__":
-    import argparse
-    import sys
-    parser = argparse.ArgumentParser(description=_mod_desc)
-    parser.add_argument('-i', '--infile',
-                        type=argparse.FileType('r'),
-                        default=sys.stdin,
-                        help="input, read line by line, default: stdin")
-    parser.add_argument('-s', '--secret',
-                        action="store", default=None,
-                        help="secret file for rotating IPs"
-                             " (should contain more than 64 byte)")
-    parser.add_argument('-o', '--outfile',
-                        type=argparse.FileType('a'),
-                        default=sys.stdout,
-                        help="output, appended to, default: stdout")
-    parser.add_argument('-w', '--words', action="store_true",
-                        default=False,
-                        help="replace bytes by words, default: False")
-    parser.add_argument('-k', '--keep-reading', action="store_true",
-                        default=False,
-                        help="keep reading the secret file, "
-                             "default: False")
-    args = parser.parse_args()
-
-    try:
-        mainloop(args)
-    finally:
-        args.infile.close()
-        args.outfile.close()
+    return int(t) * _TIME_UNITS[u]
