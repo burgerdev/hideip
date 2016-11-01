@@ -30,7 +30,7 @@ def mainloop(args):
         t = time.monotonic()
 
         # invert predicate to make use of NaN semantics
-        if not t - last_updated < args.time:
+        if secret is not None and not t - last_updated < args.time:
             logging.info("Updating the salt ...")
             secret = os.urandom(_SALT_SIZE)
             last_updated = t
