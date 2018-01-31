@@ -17,6 +17,11 @@ Features:
     log pipes where the salt is rotated regularly)
   * optional: use PGP words instead of octet notation
 
+Prerequisites:
+
+  * `python3`
+  * `cryptography` module (`pip3 install --user cryptography`)
+
 Usage
 =====
 
