@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: UTF-8
-# author: Markus Döring
+# author: Markus Rudy
 # license: GPLv3
 
 import time
