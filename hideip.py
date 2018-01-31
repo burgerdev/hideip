@@ -61,18 +61,16 @@ def rotateip(ip, salt=None):
     """
     rotate ip to another address
 
-    if 'secret' is given, the ip will be
+    if 'salt' is given, the ip will be
       * salted with secret
-      * hashed by SHA-1
+      * hashed with SHA-256
       * combined to a new IP
     otherwise, the ip will be rotated to 0.0.0.0
 
     >>> rotateip("127.0.0.1")
     '0.0.0.0'
-    >>> rotateip("127.0.0.1", secret="secret")
-    '112.64.123.134'
-    >>> x = rotateip("127.0.0.1", secret="secret")
-    >>> y = rotateip("127.0.0.1", secret="secret2")
+    >>> x = rotateip("127.0.0.1", salt=b"secret")
+    >>> y = rotateip("127.0.0.1", salt=b"secret2")
     >>> x == y
     False
     """
@@ -107,10 +105,10 @@ def replaceip(line, salt=None, words=True):
     >>> replaceip(test, words=False)
     'bla 0.0.0.0 blub 0.0.0.0 test'
     >>> test = "bla 127.0.0.1 blub "
-    >>> replaceip(test, secret="secret", words=False)
-    'bla 112.64.123.134 blub '
-    >>> replaceip(test, secret="secret")
-    'bla guidance.Dakota.kickoff.letterhead blub '
+    >>> replaceip(test, salt=b"secret", words=False)
+    'bla 244.149.186.82 blub '
+    >>> replaceip(test, salt=b"secret")
+    'bla upshot.Montana.shadow.enrollment blub '
     >>> s = replaceip("192.168.0.1 καὶ 10.10.10.10 δὲν θὰ βρῶ πιὰ στὸ χρυσαφὶ ξέφωτο", words=False)
     >>> print(s)
     0.0.0.0 καὶ 0.0.0.0 δὲν θὰ βρῶ πιὰ στὸ χρυσαφὶ ξέφωτο
