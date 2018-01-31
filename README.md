@@ -26,8 +26,8 @@ Usage
 =====
 
 ```console
-$ python hideip.py -h
-usage: hideip.py [-h] [-i INFILE] [-s SECRET] [-o OUTFILE] [-w] [-k]
+$ python main -h
+usage: main.py [-h] [-i INFILE] [-s] [-o OUTFILE] [-w] [-t TIME]
 
 This module can be used to obfuscate or simply hide ip addresses, e.g. in
 server access log files. With a regularly rotated secret, the IPs remain
@@ -38,13 +38,11 @@ optional arguments:
   -h, --help            show this help message and exit
   -i INFILE, --infile INFILE
                         input, read line by line, default: stdin
-  -s SECRET, --secret SECRET
-                        secret file for rotating IPs (should contain more than
-                        64 byte)
+  -s, --secret          generate pseudonyms (default: set IP to 0.0.0.0)
   -o OUTFILE, --outfile OUTFILE
                         output, appended to, default: stdout
   -w, --words           replace bytes by words, default: False
-  -k, --keep-reading    keep reading the secret file, default: False
+  -t TIME, --time TIME  validity period of salt <amount>(s|m|d), default: 60m
 ```
 
 Test
